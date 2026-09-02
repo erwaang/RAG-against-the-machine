@@ -133,14 +133,3 @@ class Chunking:
             )
         else:
             chunks.extend(self.__split_into_chunks(text, start_char, file))
-
-
-if __name__ == "__main__":
-    chunker = Chunking()
-    chunks = chunker.chunk_md("data/raw/vllm-0.10.1/README.md")
-    for i, chunk in enumerate(chunks):
-        print(f"Chunk {i + 1}:")
-        print(chunk.text)
-        print(f"First character index: {chunk.first_character_index}")
-        print(f"Last character index: {chunk.last_character_index}")
-        print("-" * 40)

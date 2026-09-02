@@ -1,9 +1,9 @@
 from pathlib import Path
-import re
-from tokenize import tokenize
 from src.indexing.chunking import Chunk, Chunking
+from src.indexing.tokenize import tokenize
 from rank_bm25 import BM25Okapi
 from tqdm import tqdm # display progress bar for long-running operations
+import pickle
 
 
 class Indexer:
@@ -31,22 +31,16 @@ class Indexer:
                 print(f"Skipping {file}: {e}")
         return all_chunks
 
-    def tokenize(self, text: str) -> list[str]:
-        text = re.sub(r'_', ' ', text)
-        text = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', text)
-        text = re.sub(r'[^\w\s]', ' ', text)
-        return text.lower().split()
+    def build_index(self, chunker: Chunking) -> tuple[BM25Okapi, list[Chunk]]:
+        chunks = self.chunk_files(chunker)
+        tokenized_corpus = [tokenize(chunk.text) for chunk in chunks]
+        bm25 = BM25Okapi(tokenized_corpus)
+        return bm25, chunks
 
-    def build_index(self, chunks: list[Chunk]) -> tuple[BM25Okapi, list[Chunk]]:
-        if not chunks:
-            raise ValueError("No chunks to index.")
-        tokenized_corpus = [self.tokenize(chunk.text) for chunk in chunks]
-        return BM25Okapi(tokenized_corpus), chunks
-
-
-if __name__ == "__main__":
-    indexer = Indexer()
-    chunker = Chunking()
-    chunks = indexer.chunk_files(chunker)
-    print(f"Total chunks created: {len(chunks)}")
-    print(chunks[:5])
+    def save_index(self, bm25: BM25Okapi, chunks: list[Chunk],
+                   index_dir: Path) -> None:
+        index_dir.mkdir(parents=True, exist_ok=True)
+        with open(index_dir / "bm25_index.pkl", "wb") as f:
+            pickle.dump(bm25, f)   # Save the BM25 index to a file
+        with open(index_dir / "chunks.pkl", "wb") as f:
+            pickle.dump(chunks, f)   # Save the list of chunks to a file
