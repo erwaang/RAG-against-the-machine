@@ -53,7 +53,7 @@ class Retrivial:
             for chunk in top_k_chunks
         ]
 
-    def search_dataset(self, dataset_path: str,
+    def search_dataset(self, dataset_path: str | Path,
                        k: int) -> StudentSearchResults:
         """
         Search for the top-k relevant chunks for each question in a dataset.
