@@ -21,12 +21,23 @@ class Retrivial:
         self.chunks: list[Chunk] | None = None
 
     def load_index(self) -> None:
+        """Load the BM25 index and chunks from disk."""
         with open(self.index_dir / "bm25_index.pkl", "rb") as f:
             self.bm25 = pickle.load(f)
         with open(self.index_dir / "chunks.pkl", "rb") as f:
             self.chunks = pickle.load(f)
 
     def search(self, query: str, k: int) -> list[MinimalSource]:
+        """
+        Search for the top-k relevant chunks for a given query.
+
+        Args:
+            query: The search query.
+            k: The number of top results to return.
+
+        Returns:
+            A list of the top-k relevant chunks.
+        """
         if self.bm25 is None or self.chunks is None:
             raise RuntimeError("Index not loaded. Call load_index() first.")
         tokenized_query = tokenize(query)
@@ -44,6 +55,17 @@ class Retrivial:
 
     def search_dataset(self, dataset_path: str,
                        k: int) -> StudentSearchResults:
+        """
+        Search for the top-k relevant chunks for each question in a dataset.
+
+        Args:
+            dataset_path: The path to the dataset file.
+            k: The number of top results to return for each question.
+
+        Returns:
+            A StudentSearchResults object containing the search
+            results for each question.
+        """
         with open(dataset_path, "r") as f:
             data = json.load(f)
         dataset = RagDataset.model_validate(data)
