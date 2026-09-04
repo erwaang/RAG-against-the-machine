@@ -2,6 +2,7 @@ from pathlib import Path
 from src.indexing.indexer import Indexer
 from src.indexing.chunking import Chunking
 from src.retrieval.retriever import Retrivial
+from src.evaluation.evaluate import Evaluate
 
 
 class CLI:
@@ -28,3 +29,9 @@ class CLI:
         results = retriever.search(query, k)
         for r in results:
             print(r.file_path, r.first_character_index, r.last_character_index)
+
+    def evaluate(self, dataset_path: str, k: int = 5) -> None:
+        evaluator = Evaluate(self.processed_dir)
+        evaluator.evaluate(Path(dataset_path), k)
+        result_file = evaluator.output_dir / 'evaluation_results.json'
+        print(f"Evaluation complete. Results saved to {result_file}")
