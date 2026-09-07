@@ -1,3 +1,5 @@
+"""Entry point for ``python -m src <command>``."""
+
 import fire
 from src.cli import CLI
 

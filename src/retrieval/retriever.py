@@ -1,3 +1,5 @@
+"""Lexical (BM25) retrieval over a persisted index."""
+
 from pathlib import Path
 from tqdm import tqdm
 from src.models import (
@@ -15,7 +17,14 @@ import json
 
 
 class Retrivial:
+    """Load a BM25 index and rank chunks against a query."""
+
     def __init__(self, index_dir: Path) -> None:
+        """Point the retriever at a persisted index directory.
+
+        Args:
+            index_dir: Directory produced by ``Indexer.save_index``.
+        """
         self.index_dir = index_dir
         self.bm25: BM25Okapi | None = None
         self.chunks: list[Chunk] | None = None
@@ -40,7 +49,11 @@ class Retrivial:
         """
         if self.bm25 is None or self.chunks is None:
             raise RuntimeError("Index not loaded. Call load_index() first.")
+        if k <= 0 or not query or not query.strip():
+            return []
         tokenized_query = tokenize(query)
+        if not tokenized_query:
+            return []
         scores = self.bm25.get_scores(tokenized_query)
         top_k_indices = np.argsort(scores)[::-1][:k]
         top_k_chunks = [self.chunks[i] for i in top_k_indices]

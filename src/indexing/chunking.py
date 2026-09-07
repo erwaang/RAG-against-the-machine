@@ -1,17 +1,37 @@
+"""Chunking strategies for Python and Markdown source files."""
+
 import ast
 import re
 from src.models import MinimalSource
 
 
 class Chunk(MinimalSource):
+    """A source location together with the text it covers."""
+
     text: str
 
 
 class Chunking:
+    """Split files into chunks bounded by a maximum character size."""
+
     def __init__(self, chunk_size: int = 2000):
+        """Store the maximum chunk size in characters.
+
+        Args:
+            chunk_size: Maximum number of characters per chunk.
+        """
         self.chunk_size = chunk_size
 
     def _char_offsets(self, code: str) -> list[int]:
+        """Compute the character offset at the start of each line.
+
+        Args:
+            code: The full text of a file.
+
+        Returns:
+            A list where index ``i`` is the character offset of line
+            ``i`` (0-indexed), with a trailing entry for the end of file.
+        """
         offsets = [0]
         for line in code.splitlines(keepends=True):
             offsets.append(offsets[-1] + len(line))
@@ -19,6 +39,16 @@ class Chunking:
 
     def __split_into_chunks(self, text: str, start_index: int,
                             file_path: str) -> list[Chunk]:
+        """Hard-split a span of text into fixed-size chunks.
+
+        Args:
+            text: The text to split.
+            start_index: Character offset of ``text`` within the file.
+            file_path: Path of the file ``text`` was read from.
+
+        Returns:
+            A list of chunks, each at most ``self.chunk_size`` characters.
+        """
         chunks = []
         for i in range(0, len(text), self.chunk_size):
             chunk_text = text[i:i + self.chunk_size]
@@ -33,6 +63,20 @@ class Chunking:
         return chunks
 
     def chunk_py(self, file: str) -> list[Chunk]:
+        """Chunk a Python file along its top-level AST nodes.
+
+        Each import, function, class, and async function definition
+        (with its decorators) becomes its own chunk, so a chunk always
+        holds a self-contained unit of code. Oversized definitions are
+        hard-split into smaller chunks.
+
+        Args:
+            file: Path to the Python file to chunk.
+
+        Returns:
+            The list of chunks extracted from the file (empty on read or
+            parse errors).
+        """
         try:
             with open(file, "r", encoding="utf-8") as f:
                 code = f.read()
@@ -52,12 +96,12 @@ class Chunking:
         for node in tree.body:
             if isinstance(node, (ast.Import, ast.ImportFrom, ast.FunctionDef,
                                  ast.ClassDef, ast.AsyncFunctionDef)):
-                if getattr(node, "decorator_list", []):
-                    start_line = node.decorator_list[0].lineno
-                else:
-                    start_line = node.lineno
+                decorators = getattr(node, "decorator_list", [])
+                start_line = decorators[0].lineno if decorators else node.lineno
+                end_lineno = node.end_lineno if node.end_lineno is not None \
+                    else start_line
                 start_char = offsets[start_line - 1]
-                end_char = offsets[node.end_lineno]
+                end_char = offsets[end_lineno]
                 text = code[start_char:end_char]
                 if len(text) <= self.chunk_size:
                     chunks.append(
@@ -74,6 +118,20 @@ class Chunking:
         return chunks
 
     def chunk_md(self, file: str) -> list[Chunk]:
+        """Chunk a Markdown file along its headings.
+
+        Each heading (``#`` to ``######``) starts a new chunk that runs
+        until the next heading, so a chunk corresponds to one
+        documentation section. Any text before the first heading is kept
+        as a preamble chunk, and oversized sections are hard-split.
+
+        Args:
+            file: Path to the Markdown file to chunk.
+
+        Returns:
+            The list of chunks extracted from the file (empty on read
+            errors or an empty file).
+        """
         try:
             with open(file, "r", encoding="utf-8") as f:
                 code = f.read()
@@ -102,7 +160,7 @@ class Chunking:
             preamble = code[start_char:end_char].strip()
             if preamble:
                 self.__add_section(chunks, preamble, start_char, end_char,
-                                    file)
+                                   file)
 
         for idx, line_idx in enumerate(header_line_indices):
             start_char = offsets[line_idx]
@@ -115,13 +173,13 @@ class Chunking:
             section_text = code[start_char:end_char].strip()
             if section_text:
                 self.__add_section(chunks, section_text, start_char,
-                                    end_char, file)
+                                   end_char, file)
 
         return chunks
 
     def __add_section(self, chunks: list[Chunk], text: str, start_char: int,
-                       end_char: int, file: str) -> None:
-        """Ajoute une section Markdown, en la sous-découpant si trop longue."""
+                      end_char: int, file: str) -> None:
+        """Add a Markdown section, hard-splitting it if it is too long."""
         if len(text) <= self.chunk_size:
             chunks.append(
                 Chunk(
