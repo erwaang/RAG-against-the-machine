@@ -3,6 +3,7 @@ from src.indexing.indexer import Indexer
 from src.indexing.chunking import Chunking
 from src.retrieval.retriever import Retrivial
 from src.evaluation.evaluate import Evaluate
+from src.generation.generator import Generate
 
 
 class CLI:
@@ -35,3 +36,18 @@ class CLI:
         evaluator.evaluate(Path(dataset_path), k)
         result_file = evaluator.output_dir / 'evaluation_results.json'
         print(f"Evaluation complete. Results saved to {result_file}")
+
+    def generate(self, dataset_path: str, k: int = 5) -> None:
+        retriever = Retrivial(self.processed_dir)
+        retriever.load_index()
+        search_results = retriever.search_dataset(dataset_path, k)
+
+        generator = Generate()
+        results_with_answers = generator.generate_dataset(search_results)
+
+        output_dir = Path("data/output")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_file = output_dir / "results_with_answers.json"
+        with open(output_file, "w") as f:
+            f.write(results_with_answers.model_dump_json())
+        print(f"Answer generation complete. Results saved to {output_file}")

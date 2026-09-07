@@ -13,6 +13,7 @@ clean:
 	find . -type d -name "__pycache__" -not -path "./data/raw/*" -exec rm -rf {} +
 	rm -rf .mypy_cache .pytest_cache .ruff_cache
 	rm -rf data/processed data/output
+	rm -rf .venv
 
 lint:
 	uv run flake8 .
