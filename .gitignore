@@ -24,6 +24,5 @@ huggingface_cache/
 .idea/
 .DS_Store
 *.swp
-.claude
 
 hf-cache/
