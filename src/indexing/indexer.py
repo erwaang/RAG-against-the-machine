@@ -23,11 +23,12 @@ class Indexer:
         """Find every indexable file under ``raw_dir``.
 
         Returns:
-            All ``.py`` and ``.md`` files found recursively.
+            All ``.py``, ``.md``, and ``.txt`` files found recursively.
         """
         py_files = list(self.raw_dir.rglob("*.py"))
         md_files = list(self.raw_dir.rglob("*.md"))
-        return py_files + md_files
+        txt_files = list(self.raw_dir.rglob("*.txt"))
+        return py_files + md_files + txt_files
 
     def chunk_files(self, chunker: Chunking) -> list[Chunk]:
         """Chunk every indexable file with the matching strategy.
@@ -45,7 +46,7 @@ class Indexer:
             try:
                 if file.suffix == ".py":
                     chunks = chunker.chunk_py(str(file))
-                elif file.suffix == ".md":
+                elif file.suffix in (".md", ".txt"):
                     chunks = chunker.chunk_md(str(file))
                 else:
                     continue

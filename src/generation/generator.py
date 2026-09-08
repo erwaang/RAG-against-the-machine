@@ -10,7 +10,7 @@ from src.models import (
 from tqdm import tqdm
 
 DEFAULT_MODEL = "Qwen/Qwen3-0.6B"
-MAX_CONTEXT_CHARS = 6000  # keeps the prompt within Qwen3-0.6B's token budget
+MAX_CONTEXT_CHARS = 6000
 
 
 class Generate:

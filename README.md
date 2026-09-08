@@ -192,12 +192,39 @@ $ uv run python -m src index --max_chunk_size 2000
 Ingestion complete! Indices saved under data/processed
 
 $ uv run python -m src search "How do I configure the OpenAI server?" --k 3
-data/raw/vllm-0.10.1/docs/serving/openai_compatible_server.md [9867:10100]
-data/raw/vllm-0.10.1/vllm/entrypoints/openai/api_server.py [267:400]
-...
+data/raw/vllm-0.10.1/docs/deployment/frameworks/dstack.md [2000:3169]
+data/raw/vllm-0.10.1/docs/configuration/serve_args.md [0:94]
+data/raw/vllm-0.10.1/docs/design/arch_overview.md [1474:2157]
+
+$ uv run python -m src search_dataset \
+    --dataset_path data/datasets/UnansweredQuestions/dataset_docs_public.json \
+    --k 10 \
+    --save_directory data/output/search_results/UnansweredQuestions
+Saved student_search_results to data/output/search_results/UnansweredQuestions/dataset_docs_public.json
 
 $ uv run python -m src answer "How do I configure the OpenAI server?" --k 5
-To configure the OpenAI compatible server in vLLM, ...
+To configure the OpenAI server, you can use the `vllm serve` command with the
+appropriate model and configuration. The OpenAI API server can be started
+using the `vllm serve` command, which is described in the
+[OpenAI-Compatible API Server](../serving/openai_compatible_server.md)
+document.
+
+$ uv run python -m src answer_dataset \
+    --student_search_results_path data/output/search_results/UnansweredQuestions/dataset_docs_public.json \
+    --save_directory data/output/search_results_and_answer/UnansweredQuestions
+Loaded 100 questions
+Saved student_search_results_and_answer to data/output/search_results_and_answer/UnansweredQuestions/dataset_docs_public.json
+
+$ uv run python -m src evaluate \
+
+    --student_search_results_path data/output/search_results/UnansweredQuestions/dataset_docs_public.json \
+    --dataset_path data/datasets/AnsweredQuestions/dataset_docs_public.json \
+    --k 5
+Evaluation Results
+========================================
+Recall@1: 0.540
+Recall@3: 0.750
+Recall@5: 0.810
 ```
 
 ## Resources
@@ -205,7 +232,6 @@ To configure the OpenAI compatible server in vLLM, ...
 - [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401) (Lewis et al., 2020)
 - [BM25: The Next Generation of Lexical Search](https://en.wikipedia.org/wiki/Okapi_BM25)
 - [rank_bm25 documentation](https://github.com/dorianbrown/rank_bm25)
-- [Qwen3 model card](https://huggingface.co/Qwen/Qwen3-0.6B)
 - [Python Fire documentation](https://github.com/google/python-fire)
 - [Pydantic documentation](https://docs.pydantic.dev/)
 - [vLLM documentation](https://docs.vllm.ai/)
@@ -214,6 +240,6 @@ To configure the OpenAI compatible server in vLLM, ...
 
 An AI assistant was used to:
 
+- To answer some questions I had about the subject
 - review the subject and identify gaps against the mandatory requirements
-  (missing CLI commands, missing recall@k implementation, wrong model),
 - draft this README.

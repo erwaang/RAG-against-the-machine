@@ -14,7 +14,7 @@ def tokenize(text: str) -> list[str]:
     text = re.sub(r'_', ' ', text)   # Replace underscores with spaces
     text = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', text)
     # Add space before capital letters in camelCase
-    text = re.sub(r'[^\w\s]', '', text)  # Remove punctuation
+    text = re.sub(r'[^\w\s]', ' ', text)  # Replace punctuation with spaces
     # \w = [a-zA-Z0-9_]
     # \s = whitespace characters ([' ', '\t', '\n'], etc.)
-    return text.split()
+    return text.lower().split()
