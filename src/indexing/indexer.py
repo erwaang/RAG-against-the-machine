@@ -46,8 +46,10 @@ class Indexer:
             try:
                 if file.suffix == ".py":
                     chunks = chunker.chunk_py(str(file))
-                elif file.suffix in (".md", ".txt"):
+                elif file.suffix == ".md":
                     chunks = chunker.chunk_md(str(file))
+                elif file.suffix == ".txt":
+                    chunks = chunker.chunk_txt(str(file))
                 else:
                     continue
                 all_chunks.extend(chunks)
@@ -67,7 +69,7 @@ class Indexer:
         """
         chunks = self.chunk_files(chunker)
         tokenized_corpus = [tokenize(chunk.text) for chunk in chunks]
-        bm25 = BM25Okapi(tokenized_corpus)
+        bm25 = BM25Okapi(tokenized_corpus, b=0.45)
         return bm25, chunks
 
     def save_index(self, bm25: BM25Okapi, chunks: list[Chunk],

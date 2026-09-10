@@ -17,4 +17,5 @@ def tokenize(text: str) -> list[str]:
     text = re.sub(r'[^\w\s]', ' ', text)  # Replace punctuation with spaces
     # \w = [a-zA-Z0-9_]
     # \s = whitespace characters ([' ', '\t', '\n'], etc.)
-    return text.lower().split()
+    tokens = text.lower().split()
+    return [t for t in tokens if len(t) > 1]

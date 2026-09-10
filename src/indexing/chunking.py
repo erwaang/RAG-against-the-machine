@@ -38,28 +38,42 @@ class Chunking:
         return offsets
 
     def __split_into_chunks(self, text: str, start_index: int,
-                            file_path: str) -> list[Chunk]:
+                            file_path: str,
+                            boundaries: list[int] | None = None
+                            ) -> list[Chunk]:
         """Hard-split a span of text into fixed-size chunks.
 
         Args:
             text: The text to split.
             start_index: Character offset of ``text`` within the file.
             file_path: Path of the file ``text`` was read from.
+            boundaries: Character offsets within ``text`` that are safe
+                to cut at (e.g. method starts). Each cut snaps back to
+                the nearest boundary at or before the naive cut, so a
+                split never falls in the middle of a method.
 
         Returns:
             A list of chunks, each at most ``self.chunk_size`` characters.
         """
         chunks = []
-        for i in range(0, len(text), self.chunk_size):
-            chunk_text = text[i:i + self.chunk_size]
+        i = 0
+        while i < len(text):
+            end = min(i + self.chunk_size, len(text))
+            if boundaries:
+                snapped = max((b for b in boundaries if i < b <= end),
+                              default=None)
+                if snapped is not None:
+                    end = snapped
+            chunk_text = text[i:end]
             chunks.append(
                 Chunk(
                     file_path=file_path,
                     first_character_index=start_index + i,
-                    last_character_index=start_index + i + len(chunk_text),
+                    last_character_index=start_index + end,
                     text=chunk_text,
                 )
             )
+            i = end
         return chunks
 
     def chunk_py(self, file: str) -> list[Chunk]:
@@ -113,9 +127,51 @@ class Chunking:
                         )
                     )
                 else:
-                    chunks.extend(self.__split_into_chunks(text, start_char,
-                                                           file))
+                    boundaries = None
+                    if isinstance(node, ast.ClassDef):
+                        boundaries = [
+                            offsets[(m.decorator_list[0].lineno
+                                     if m.decorator_list else m.lineno) - 1]
+                            - start_char
+                            for m in node.body
+                            if isinstance(m, (ast.FunctionDef,
+                                              ast.AsyncFunctionDef))
+                        ]
+                    elif isinstance(node, (ast.FunctionDef,
+                                           ast.AsyncFunctionDef)):
+                        boundaries = [
+                            offsets[stmt.lineno - 1] - start_char
+                            for stmt in node.body
+                        ]
+                    chunks.extend(self.__split_into_chunks(
+                        text, start_char, file, boundaries))
         return chunks
+
+    def chunk_txt(self, file: str) -> list[Chunk]:
+        """Chunk a plain text file into fixed-size chunks.
+
+        Unlike ``chunk_md``, this does not treat lines starting with
+        ``#`` as headings, so non-Markdown ``.txt`` files (e.g.
+        ``CMakeLists.txt``, requirements files) aren't shredded into a
+        chunk per comment line.
+
+        Args:
+            file: Path to the text file to chunk.
+
+        Returns:
+            The list of chunks extracted from the file (empty on read
+            errors or an empty file).
+        """
+        try:
+            with open(file, "r", encoding="utf-8") as f:
+                code = f.read()
+        except OSError as e:
+            print(f"Error reading {file}: {e}")
+            return []
+
+        if not code.strip():
+            return []
+        return self.__split_into_chunks(code, 0, file)
 
     def chunk_md(self, file: str) -> list[Chunk]:
         """Chunk a Markdown file along its headings.
