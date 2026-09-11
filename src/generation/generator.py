@@ -20,16 +20,12 @@ class Generate:
     def __init__(self, model_name: str = DEFAULT_MODEL) -> None:
         """Load the tokenizer and causal LM used to generate answers.
 
-        Runs on CUDA with float16 weights when a GPU is available,
-        falling back to CPU float32 otherwise.
-
         Args:
             model_name: Hugging Face model id to load.
         """
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        dtype = torch.float16 if self.device == "cuda" else torch.float32
+        self.device = "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForCausalLM.from_pretrained(model_name, dtype=dtype)
+        model = AutoModelForCausalLM.from_pretrained(model_name, dtype=torch.float32)
         self.model = model.to(self.device)  # type: ignore[arg-type]
         self.instructions = (
             "You are a helpful assistant answering questions about a "
