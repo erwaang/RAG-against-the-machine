@@ -29,17 +29,18 @@ class Chunking:
             code: The full text of a file.
 
         Returns:
-            A list where index ``i`` is the character offset of line
-            ``i`` (0-indexed), with a trailing entry for the end of file.
+            A list of the character offsets at the start of each line.
         """
         offsets = [0]
+        # Add offsets for each line, including the trailing newline if present.
         for line in code.splitlines(keepends=True):
+            # The offset of the next line is the offset of the current line + its length.
             offsets.append(offsets[-1] + len(line))
         return offsets
 
     def __split_into_chunks(self, text: str, start_index: int,
                             file_path: str,
-                            boundaries: list[int] | None = None
+                            safe_offsets: list[int] | None = None
                             ) -> list[Chunk]:
         """Hard-split a span of text into fixed-size chunks.
 
@@ -47,9 +48,9 @@ class Chunking:
             text: The text to split.
             start_index: Character offset of ``text`` within the file.
             file_path: Path of the file ``text`` was read from.
-            boundaries: Character offsets within ``text`` that are safe
+            safe_offsets: Character offsets within ``text`` that are safe
                 to cut at (e.g. method starts). Each cut snaps back to
-                the nearest boundary at or before the naive cut, so a
+                the nearest safe offset at or before the naive cut, so a
                 split never falls in the middle of a method.
 
         Returns:
@@ -58,12 +59,14 @@ class Chunking:
         chunks = []
         i = 0
         while i < len(text):
+            # Prevent the chunk from extending beyond what actually exists.
             end = min(i + self.chunk_size, len(text))
-            if boundaries:
-                snapped = max((b for b in boundaries if i < b <= end),
-                              default=None)
-                if snapped is not None:
-                    end = snapped
+            if safe_offsets:
+                # Find the closest safe offset before the end of the chunk.
+                cut_position = max((b for b in safe_offsets if i < b <= end),
+                                   default=None)
+                if cut_position is not None:
+                    end = cut_position
             chunk_text = text[i:end]
             chunks.append(
                 Chunk(
@@ -99,6 +102,7 @@ class Chunking:
             return []
 
         try:
+            # AST = Abstract Syntax Tree
             tree = ast.parse(code)
         except SyntaxError as e:
             print(f"Error parsing {file}: {e}")
@@ -111,7 +115,9 @@ class Chunking:
             if isinstance(node, (ast.Import, ast.ImportFrom, ast.FunctionDef,
                                  ast.ClassDef, ast.AsyncFunctionDef)):
                 decorators = getattr(node, "decorator_list", [])
+                # node.lineno = the line number where this code fragment start in the source file.
                 start_line = decorators[0].lineno if decorators else node.lineno
+                # node.end_lineno = the line number where this fragment ends in the source file.
                 end_lineno = node.end_lineno if node.end_lineno is not None \
                     else start_line
                 start_char = offsets[start_line - 1]
@@ -127,9 +133,10 @@ class Chunking:
                         )
                     )
                 else:
-                    boundaries = None
+                    safe_offsets = None
                     if isinstance(node, ast.ClassDef):
-                        boundaries = [
+                        # Cut at the start of each method, including decorators
+                        safe_offsets = [
                             offsets[(m.decorator_list[0].lineno
                                      if m.decorator_list else m.lineno) - 1]
                             - start_char
@@ -139,12 +146,13 @@ class Chunking:
                         ]
                     elif isinstance(node, (ast.FunctionDef,
                                            ast.AsyncFunctionDef)):
-                        boundaries = [
+                        # Cut at the start of each statement in the function
+                        safe_offsets = [
                             offsets[stmt.lineno - 1] - start_char
                             for stmt in node.body
                         ]
                     chunks.extend(self.__split_into_chunks(
-                        text, start_char, file, boundaries))
+                        text, start_char, file, safe_offsets))
         return chunks
 
     def chunk_txt(self, file: str) -> list[Chunk]:
@@ -169,6 +177,7 @@ class Chunking:
             print(f"Error reading {file}: {e}")
             return []
 
+        # strip = remove spaces/line breaks at the start and end of the text
         if not code.strip():
             return []
         return self.__split_into_chunks(code, 0, file)
@@ -199,6 +208,7 @@ class Chunking:
         lines = code.splitlines(keepends=True)
 
         header_pattern = re.compile(r"^#{1,6}\s+")
+        # Find the line indices of all Markdown headings in the file.
         header_line_indices = [
             i for i, line in enumerate(lines) if header_pattern.match(line)
         ]
@@ -210,6 +220,7 @@ class Chunking:
                 chunks.extend(self.__split_into_chunks(code, 0, file))
             return chunks
 
+        # If there is text before the first heading, treat it as a preamble chunk.
         if header_line_indices[0] > 0:
             start_char = 0
             end_char = offsets[header_line_indices[0]]
@@ -218,13 +229,16 @@ class Chunking:
                 self.__add_section(chunks, preamble, start_char, end_char,
                                    file)
 
-        for idx, line_idx in enumerate(header_line_indices):
-            start_char = offsets[line_idx]
-            if idx + 1 < len(header_line_indices):
-                end_line_idx = header_line_indices[idx + 1]
+        # Split the text into sections based on the headings, and add each section as a chunk.
+        # Example: If the first heading is at line 3 (0, 3)
+        for index, line_index in enumerate(header_line_indices):
+            start_char = offsets[line_index]
+            # Determine the section end: start of next heading, or end of file.
+            if index + 1 < len(header_line_indices):
+                end_line_index = header_line_indices[index + 1]
             else:
-                end_line_idx = len(lines)
-            end_char = offsets[end_line_idx]
+                end_line_index = len(lines)
+            end_char = offsets[end_line_index]
 
             section_text = code[start_char:end_char].strip()
             if section_text:
@@ -246,4 +260,5 @@ class Chunking:
                 )
             )
         else:
+            # Hard-split it into smaller chunks.
             chunks.extend(self.__split_into_chunks(text, start_char, file))

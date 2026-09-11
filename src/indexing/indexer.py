@@ -25,6 +25,7 @@ class Indexer:
         Returns:
             All ``.py``, ``.md``, and ``.txt`` files found recursively.
         """
+        # Search for files with the specified extensions in the raw_dir and its subdirectories.
         py_files = list(self.raw_dir.rglob("*.py"))
         md_files = list(self.raw_dir.rglob("*.md"))
         txt_files = list(self.raw_dir.rglob("*.txt"))
@@ -69,6 +70,7 @@ class Indexer:
         """
         chunks = self.chunk_files(chunker)
         tokenized_corpus = [tokenize(chunk.text) for chunk in chunks]
+        # b = the length of a document penalizes its score
         bm25 = BM25Okapi(tokenized_corpus, b=0.45)
         return bm25, chunks
 

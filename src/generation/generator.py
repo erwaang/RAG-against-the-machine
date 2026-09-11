@@ -29,9 +29,8 @@ class Generate:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         dtype = torch.float16 if self.device == "cuda" else torch.float32
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name, dtype=dtype
-        ).to(self.device)
+        model = AutoModelForCausalLM.from_pretrained(model_name, dtype=dtype)
+        self.model = model.to(self.device)  # type: ignore[arg-type]
         self.instructions = (
             "You are a helpful assistant answering questions about a "
             "codebase. Answer only using the provided sources. If the "
@@ -111,7 +110,7 @@ class Generate:
                 enable_thinking=False,
             )
             inputs = self.tokenizer(text, return_tensors="pt").to(self.device)
-            outputs = self.model.generate(  # type: ignore[misc]
+            outputs = self.model.generate(
                 **inputs,
                 max_new_tokens=256,
                 do_sample=False,

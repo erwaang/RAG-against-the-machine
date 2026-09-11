@@ -46,7 +46,7 @@ class Evaluate:
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    def _load_ground_truth(self, dataset_path: Path) -> Dict[str, List[MinimalSource]]:
+    def _load_reference_sources(self, dataset_path: Path) -> Dict[str, List[MinimalSource]]:
         """Load a ground-truth dataset into a question_id -> sources map.
 
         Args:
@@ -104,7 +104,7 @@ class Evaluate:
             k_values = [1, 3, 5, 10]
 
         student_results = self._load_student_results(student_search_results_path)
-        ground_truth = self._load_ground_truth(dataset_path)
+        ground_truth = self._load_reference_sources(dataset_path)
 
         recalls: Dict[int, List[float]] = {k: [] for k in k_values}
 
