@@ -59,12 +59,12 @@ class Evaluate:
         with open(dataset_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         dataset = RagDataset.model_validate(data)
-        ground_truth: Dict[str, List[MinimalSource]] = {}
+        reference_sources: Dict[str, List[MinimalSource]] = {}
         for question in dataset.rag_questions:
             sources = getattr(question, "sources", None)
             if sources is not None:
-                ground_truth[question.question_id] = sources
-        return ground_truth
+                reference_sources[question.question_id] = sources
+        return reference_sources
 
     def _load_student_results(
         self, student_search_results_path: Path
@@ -104,21 +104,21 @@ class Evaluate:
             k_values = [1, 3, 5, 10]
 
         student_results = self._load_student_results(student_search_results_path)
-        ground_truth = self._load_reference_sources(dataset_path)
+        reference_sources = self._load_reference_sources(dataset_path)
 
         recalls: Dict[int, List[float]] = {k: [] for k in k_values}
 
         for result in student_results.search_results:
-            gt_sources = ground_truth.get(result.question_id)
-            if not gt_sources:
+            ref_sources = reference_sources.get(result.question_id)
+            if not ref_sources:
                 continue
             for k in k_values:
                 retrieved = result.retrieved_sources[:k]
                 found = 0
-                for gt in gt_sources:
+                for gt in ref_sources:
                     if any(_overlaps(r, gt) for r in retrieved):
                         found += 1
-                recalls[k].append(found / len(gt_sources))
+                recalls[k].append(found / len(ref_sources))
 
         return {
             k: (sum(values) / len(values) if values else 0.0)
